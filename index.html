@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, user-scalable=no">
+<title>Reel — your shorts, in order</title>
+<meta name="theme-color" content="#0b0c0e">
+<meta name="description" content="Play your own list of YouTube Shorts, one after another.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="favicon-32.png" sizes="32x32">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Reel">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0c0e; --panel:#141619; --panel2:#1b1e22; --line:#23262b;
+    --text:#f2f3f5; --dim:#7d828b; --accent:#ff3b5c; --accent-soft:#ff3b5c22;
+    --ok:#3ddc97;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    background:radial-gradient(120% 80% at 50% -10%, #16181c 0%, var(--bg) 55%);
+    color:var(--text);font-family:"Bricolage Grotesque",sans-serif;overflow:hidden;
+    display:flex;flex-direction:column;height:100dvh;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  header{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:14px 16px;border-bottom:1px solid var(--line);flex:0 0 auto}
+  .logo{font-weight:800;font-size:18px;letter-spacing:-.5px;display:flex;align-items:center;gap:8px;flex:0 0 auto}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent)}
+  .pl-chip{flex:1;min-width:0;display:flex;align-items:center;gap:6px;justify-content:center;
+    background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:7px 12px;
+    font-size:13px;font-weight:700;cursor:pointer;overflow:hidden}
+  .pl-chip span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pl-chip svg{flex:0 0 auto;opacity:.6}
+  .counter{font-family:"Spline Sans Mono",monospace;font-size:13px;color:var(--dim);flex:0 0 auto}
+  .counter b{color:var(--text)}
+
+  .stage{flex:1 1 auto;position:relative;display:flex;align-items:center;justify-content:center;min-height:0;padding:12px}
+  .frame{position:relative;height:100%;aspect-ratio:9/16;max-width:100%;border-radius:20px;
+    overflow:hidden;background:#000;border:1px solid var(--line);box-shadow:0 24px 60px -20px #000}
+  #player,#player iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+
+  .overlay{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:16px;text-align:center;padding:28px;
+    background:linear-gradient(180deg,#0e0f12 0%,#0b0c0e 100%)}
+  .overlay.hidden{display:none}
+  .overlay h2{font-size:21px;font-weight:700;letter-spacing:-.4px}
+  .overlay p{color:var(--dim);font-size:14px;max-width:250px;line-height:1.5}
+  .play-btn{width:84px;height:84px;border-radius:50%;border:none;cursor:pointer;background:var(--accent);
+    display:flex;align-items:center;justify-content:center;animation:pulse 2.4s infinite;transition:transform .15s}
+  .play-btn:active{transform:scale(.92)}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 var(--accent-soft)}70%{box-shadow:0 0 0 22px transparent}100%{box-shadow:0 0 0 0 transparent}}
+
+  .toggles{flex:0 0 auto;display:flex;gap:8px;padding:0 16px 0;justify-content:center}
+  .toggle{display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);
+    color:var(--dim);border-radius:999px;padding:7px 13px;font-family:inherit;font-weight:700;font-size:12.5px;cursor:pointer}
+  .toggle.on{color:var(--text);border-color:var(--accent);background:var(--accent-soft)}
+  .toggle svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+
+  .controls{flex:0 0 auto;display:flex;gap:10px;padding:12px 16px 16px}
+  .controls button{flex:1;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:13px;
+    padding:14px;font-family:inherit;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;
+    justify-content:center;gap:7px;transition:background .15s}
+  .controls button:active{background:var(--panel2)}
+  .controls .mid{flex:0 0 64px;background:var(--accent);border-color:var(--accent);color:#fff}
+  .icon{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+
+  /* sheets */
+  .drawer{position:fixed;inset:0;z-index:20;background:#000a;backdrop-filter:blur(4px);display:flex;
+    align-items:flex-end;opacity:0;pointer-events:none;transition:opacity .2s}
+  .drawer.open{opacity:1;pointer-events:auto}
+  .sheet{width:100%;max-height:86dvh;background:var(--panel);border-radius:22px 22px 0 0;border-top:1px solid var(--line);
+    padding:18px 18px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px;overflow:auto;
+    transform:translateY(100%);transition:transform .25s cubic-bezier(.2,.8,.2,1)}
+  .drawer.open .sheet{transform:translateY(0)}
+  .sheet h3{font-size:18px;font-weight:800}
+  .sheet label{font-size:12px;color:var(--dim);font-family:"Spline Sans Mono",monospace}
+  textarea,input[type=text]{width:100%;background:var(--bg);color:var(--text);border:1px solid var(--line);
+    border-radius:13px;padding:13px;font-family:"Spline Sans Mono",monospace;font-size:13px;line-height:1.6}
+  textarea{min-height:160px;resize:vertical}
+  .row{display:flex;gap:10px}
+  .row>button{flex:1;border-radius:13px;padding:14px;font-family:inherit;font-weight:800;font-size:15px;border:none;cursor:pointer}
+  .primary{background:var(--accent);color:#fff}
+  .ghost{background:transparent;color:var(--dim);border:1px solid var(--line)!important}
+  .hint{font-size:12px;color:var(--dim);line-height:1.5}
+  /* playlist list */
+  .pl-list{display:flex;flex-direction:column;gap:8px;max-height:46dvh;overflow:auto}
+  .pl-item{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--line);
+    border-radius:13px;padding:12px 14px;cursor:pointer}
+  .pl-item.active{border-color:var(--accent)}
+  .pl-item .nm{flex:1;font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pl-item .ct{font-family:"Spline Sans Mono",monospace;font-size:12px;color:var(--dim)}
+  .pl-item .x{color:var(--dim);padding:4px;border:none;background:none;cursor:pointer}
+  .add-pl{display:flex;align-items:center;justify-content:center;gap:7px;background:var(--panel2);
+    border:1px dashed var(--line);border-radius:13px;padding:13px;font-family:inherit;font-weight:700;
+    font-size:14px;color:var(--dim);cursor:pointer}
+</style>
+</head>
+<body>
+  <header>
+    <div class="logo"><span class="dot"></span>Reel</div>
+    <div class="pl-chip" id="plChip"><span id="plName">My shorts</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+    </div>
+    <div class="counter" id="counter">— / —</div>
+  </header>
+
+  <div class="stage">
+    <div class="frame">
+      <div id="player"></div>
+      <div class="overlay" id="overlay">
+        <button class="play-btn" id="startBtn" aria-label="Start">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <h2 id="overlayTitle">Ready when you are</h2>
+        <p id="overlayText">Tap play to run your list top to bottom.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="toggles">
+    <button class="toggle" id="shuffleBtn"><svg viewBox="0 0 24 24"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>Shuffle</button>
+    <button class="toggle on" id="loopBtn"><svg viewBox="0 0 24 24"><path d="m17 2 4 4-4 4M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v1a4 4 0 0 1-4 4H3"/></svg>Loop</button>
+    <button class="toggle" id="editBtn"><svg viewBox="0 0 24 24"><path d="M4 21h4l11-11-4-4L4 17z"/></svg>Edit</button>
+  </div>
+
+  <div class="controls">
+    <button id="prevBtn"><svg class="icon" viewBox="0 0 24 24"><path d="M19 20 9 12l10-8zM5 19V5"/></svg>Prev</button>
+    <button class="mid" id="playBtn" aria-label="Play/Pause"><svg class="icon" id="playIcon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M8 5v14l11-7z"/></svg></button>
+    <button id="nextBtn">Next<svg class="icon" viewBox="0 0 24 24"><path d="m5 4 10 8-10 8zM19 5v14"/></svg></button>
+  </div>
+
+  <!-- links editor -->
+  <div class="drawer" id="editDrawer">
+    <div class="sheet">
+      <h3 id="editTitle">Edit list</h3>
+      <input type="text" id="plTitle" placeholder="Playlist name">
+      <label>Paste one link per line</label>
+      <textarea id="links" placeholder="https://youtube.com/shorts/xxxxxxxxxxx&#10;https://youtu.be/yyyyyyyyyyy&#10;https://youtube.com/watch?v=zzzzzzzzzzz"></textarea>
+      <div class="hint">Shorts, youtu.be and watch?v= links all work. Videos with embedding disabled by their uploader are skipped automatically. Everything is saved on this device.</div>
+      <div class="row">
+        <button class="ghost" id="editCancel">Cancel</button>
+        <button class="primary" id="editSave">Save &amp; play</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- playlist switcher -->
+  <div class="drawer" id="plDrawer">
+    <div class="sheet">
+      <h3>Playlists</h3>
+      <div class="pl-list" id="plList"></div>
+      <button class="add-pl" id="addPl">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New playlist
+      </button>
+    </div>
+  </div>
+
+<script>
+/* ---------------- storage ---------------- */
+const KEY = "reel:data:v1";
+const uid = () => Math.random().toString(36).slice(2,9);
+let data = load();
+
+function load(){
+  try{
+    const d = JSON.parse(localStorage.getItem(KEY));
+    if(d && d.playlists && d.playlists.length) return d;
+  }catch(e){}
+  return {
+    playlists:[{id:uid(), name:"My shorts", text:""}],
+    currentId:null, settings:{loop:true, shuffle:false}
+  };
+}
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(data)); }catch(e){} }
+function current(){ return data.playlists.find(p=>p.id===data.currentId) || data.playlists[0]; }
+if(!data.currentId) data.currentId = data.playlists[0].id;
+
+/* ---------------- id parsing ---------------- */
+function extractId(line){
+  line = line.trim(); if(!line) return null;
+  if(/^[a-zA-Z0-9_-]{11}$/.test(line)) return line;
+  const pats=[/shorts\/([a-zA-Z0-9_-]{11})/,/youtu\.be\/([a-zA-Z0-9_-]{11})/,/[?&]v=([a-zA-Z0-9_-]{11})/,/embed\/([a-zA-Z0-9_-]{11})/];
+  for(const p of pats){ const m=line.match(p); if(m) return m[1]; }
+  return null;
+}
+function idsOf(pl){ return (pl.text||"").split(/\n+/).map(extractId).filter(Boolean); }
+
+/* ---------------- playback ---------------- */
+let player=null, apiReady=false, pendingStart=false;
+let queue=[], pos=0, isPlaying=false;
+
+function shuffleArr(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+function buildQueue(){
+  const base = idsOf(current());
+  queue = data.settings.shuffle ? shuffleArr(base) : base;
+  pos = 0;
+}
+
+const tag=document.createElement('script');
+tag.src="https://www.youtube.com/iframe_api";
+document.head.appendChild(tag);
+window.onYouTubeIframeAPIReady=function(){
+  apiReady=true;
+  player=new YT.Player('player',{
+    width:'100%',height:'100%',
+    playerVars:{playsinline:1, rel:0, modestbranding:1, controls:1, fs:1},
+    events:{
+      onReady:()=>{ if(pendingStart){pendingStart=false; play(0);} },
+      onStateChange:onState,
+      onError:()=>setTimeout(next,600)
+    }
+  });
+};
+function onState(e){
+  if(e.data===YT.PlayerState.ENDED) next();
+  if(e.data===YT.PlayerState.PLAYING){ isPlaying=true; setPlayIcon(); }
+  if(e.data===YT.PlayerState.PAUSED){ isPlaying=false; setPlayIcon(); }
+}
+function play(p){
+  if(!queue.length) return;
+  pos=(p+queue.length)%queue.length;
+  updateCounter();
+  if(apiReady&&player&&player.loadVideoById) player.loadVideoById(queue[pos]);
+}
+function next(){
+  if(!queue.length) return;
+  if(pos>=queue.length-1 && !data.settings.loop){ isPlaying=false; setPlayIcon(); return; }
+  play(pos+1);
+}
+function prev(){ play(pos-1); }
+function togglePlay(){
+  if(!player||!player.getPlayerState) return;
+  const s=player.getPlayerState();
+  if(s===YT.PlayerState.PLAYING) player.pauseVideo(); else player.playVideo();
+}
+
+/* ---------------- ui ---------------- */
+const $=id=>document.getElementById(id);
+const overlay=$('overlay');
+function updateCounter(){ $('counter').innerHTML = queue.length?`<b>${pos+1}</b> / ${queue.length}`:'— / —'; }
+function setPlayIcon(){
+  $('playIcon').innerHTML = isPlaying ? '<path d="M6 4h4v16H6zM14 4h4v16h-4z"/>' : '<path d="M8 5v14l11-7z"/>';
+}
+function refreshChip(){ $('plName').textContent = current().name || "Untitled"; }
+function syncToggles(){
+  $('shuffleBtn').classList.toggle('on', data.settings.shuffle);
+  $('loopBtn').classList.toggle('on', data.settings.loop);
+}
+
+function startPlayback(){
+  buildQueue();
+  if(!queue.length){ openEdit(); return; }
+  overlay.classList.add('hidden');
+  if(apiReady&&player&&player.loadVideoById) play(0); else pendingStart=true;
+}
+
+function showOverlay(title,text){
+  $('overlayTitle').textContent=title; $('overlayText').textContent=text;
+  overlay.classList.remove('hidden');
+}
+
+/* edit sheet */
+function openEdit(){
+  const pl=current();
+  $('plTitle').value=pl.name; $('links').value=pl.text;
+  $('editTitle').textContent = idsOf(pl).length ? "Edit list" : "Add your shorts";
+  $('editDrawer').classList.add('open');
+}
+$('editCancel').onclick=()=>$('editDrawer').classList.remove('open');
+$('editSave').onclick=()=>{
+  const pl=current();
+  pl.name=($('plTitle').value.trim())||"Untitled";
+  pl.text=$('links').value;
+  save(); refreshChip();
+  $('editDrawer').classList.remove('open');
+  buildQueue(); updateCounter();
+  if(queue.length) showOverlay(`${queue.length} short${queue.length>1?'s':''} loaded`,"Tap play to run them top to bottom.");
+  else showOverlay("No valid links found","Check the links — they should look like youtube.com/shorts/…");
+};
+
+/* playlist sheet */
+function renderPlaylists(){
+  const wrap=$('plList'); wrap.innerHTML='';
+  data.playlists.forEach(pl=>{
+    const n=idsOf(pl).length;
+    const el=document.createElement('div');
+    el.className='pl-item'+(pl.id===data.currentId?' active':'');
+    el.innerHTML=`<div class="nm">${escapeHtml(pl.name||'Untitled')}</div>
+      <div class="ct">${n}</div>
+      <button class="x" aria-label="Delete">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button>`;
+    el.querySelector('.nm').onclick=()=>{ data.currentId=pl.id; save(); selectPlaylist(); $('plDrawer').classList.remove('open'); };
+    el.querySelector('.ct').onclick=el.querySelector('.nm').onclick;
+    el.querySelector('.x').onclick=(e)=>{ e.stopPropagation(); deletePlaylist(pl.id); };
+    wrap.appendChild(el);
+  });
+}
+function deletePlaylist(id){
+  if(data.playlists.length<=1){ data.playlists[0]={id:uid(),name:"My shorts",text:""}; }
+  else data.playlists=data.playlists.filter(p=>p.id!==id);
+  if(!data.playlists.find(p=>p.id===data.currentId)) data.currentId=data.playlists[0].id;
+  save(); renderPlaylists(); selectPlaylist();
+}
+$('addPl').onclick=()=>{
+  const pl={id:uid(),name:"New playlist",text:""};
+  data.playlists.push(pl); data.currentId=pl.id; save();
+  renderPlaylists(); refreshChip();
+  $('plDrawer').classList.remove('open'); openEdit();
+};
+function selectPlaylist(){
+  refreshChip(); buildQueue(); updateCounter();
+  const n=queue.length;
+  showOverlay(n?`${current().name}`:"This playlist is empty", n?`${n} short${n>1?'s':''} ready — tap play.`:"Tap Edit to add some links.");
+}
+
+/* wiring */
+$('startBtn').onclick=startPlayback;
+$('playBtn').onclick=()=>{ if(overlay.classList.contains('hidden')) togglePlay(); else startPlayback(); };
+$('nextBtn').onclick=next;
+$('prevBtn').onclick=prev;
+$('plChip').onclick=()=>{ renderPlaylists(); $('plDrawer').classList.add('open'); };
+$('shuffleBtn').onclick=()=>{ data.settings.shuffle=!data.settings.shuffle; save(); syncToggles(); if(overlay.classList.contains('hidden')){buildQueue();play(0);} };
+$('loopBtn').onclick=()=>{ data.settings.loop=!data.settings.loop; save(); syncToggles(); };
+$('editBtn').onclick=openEdit;
+document.querySelectorAll('.drawer').forEach(d=>d.addEventListener('click',e=>{ if(e.target===d) d.classList.remove('open'); }));
+
+/* boot */
+syncToggles(); refreshChip(); buildQueue(); updateCounter();
+showOverlay(
+  idsOf(current()).length ? current().name : "Welcome to Reel",
+  idsOf(current()).length ? "Tap play to run your list top to bottom." : "Tap Edit below to paste your first Shorts links."
+);
+
+/* service worker for installability + offline shell */
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+</script>
+</body>
+</html>
