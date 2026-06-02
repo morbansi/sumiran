@@ -1,4 +1,4 @@
-const CACHE = "reel-shell-v1";
+const CACHE = "sumiran-v2";
 const SHELL = [
   ".",
   "index.html",
