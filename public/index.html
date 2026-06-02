@@ -45,6 +45,7 @@
   .frame{position:relative;height:100%;aspect-ratio:9/16;max-width:100%;border-radius:20px;
     overflow:hidden;background:#000;border:1px solid var(--line);box-shadow:0 24px 60px -20px #000}
   #player,#player iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+  #preload{position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none}
 
   .overlay{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;
     justify-content:center;gap:16px;text-align:center;padding:28px;
@@ -114,6 +115,7 @@
   <div class="stage">
     <div class="frame">
       <div id="player"></div>
+      <div id="preload" aria-hidden="true"></div>
       <div class="overlay" id="overlay">
         <button class="play-btn" id="startBtn" aria-label="Start">
           <svg width="30" height="30" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>
@@ -126,7 +128,7 @@
 
   <div class="toggles">
     <button class="toggle" id="shuffleBtn"><svg viewBox="0 0 24 24"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>Shuffle</button>
-    <button class="toggle on" id="loopBtn"><svg viewBox="0 0 24 24"><path d="m17 2 4 4-4 4M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v1a4 4 0 0 1-4 4H3"/></svg>Loop</button>
+    <button class="toggle" id="loopOneBtn"><svg viewBox="0 0 24 24"><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M12 7v10"/><path d="M16 10h-4"/></svg>Loop 1</button>
     <button class="toggle" id="editBtn"><svg viewBox="0 0 24 24"><path d="M4 21h4l11-11-4-4L4 17z"/></svg>Edit</button>
   </div>
 
@@ -175,12 +177,14 @@ function load(){
   }catch(e){}
   return {
     playlists:[{id:uid(), name:"My shorts", text:""}],
-    currentId:null, settings:{loop:true, shuffle:false}
+    currentId:null, settings:{loopOne:false, shuffle:false}
   };
 }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(data)); }catch(e){} }
 function current(){ return data.playlists.find(p=>p.id===data.currentId) || data.playlists[0]; }
 if(!data.currentId) data.currentId = data.playlists[0].id;
+if(!data.settings) data.settings = { loopOne:false, shuffle:false };
+if(typeof data.settings.loopOne !== "boolean") data.settings.loopOne = false;
 
 /* ---------------- id parsing ---------------- */
 function extractId(line){
@@ -194,6 +198,7 @@ function idsOf(pl){ return (pl.text||"").split(/\n+/).map(extractId).filter(Bool
 
 /* ---------------- playback ---------------- */
 let player=null, apiReady=false, pendingStart=false;
+let preloader=null;
 let queue=[], pos=0, isPlaying=false;
 
 function shuffleArr(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
@@ -217,9 +222,22 @@ window.onYouTubeIframeAPIReady=function(){
       onError:()=>setTimeout(next,600)
     }
   });
+
+  // Best-effort: cue the next video in a hidden player so transitions buffer faster.
+  preloader=new YT.Player('preload',{
+    width:'1',height:'1',
+    playerVars:{playsinline:1, rel:0, modestbranding:1, controls:0, fs:0, disablekb:1},
+    events:{ onError:()=>{} }
+  });
 };
 function onState(e){
-  if(e.data===YT.PlayerState.ENDED) next();
+  if(e.data===YT.PlayerState.ENDED){
+    if(data.settings.loopOne){
+      play(pos);
+    }else{
+      next();
+    }
+  }
   if(e.data===YT.PlayerState.PLAYING){ isPlaying=true; setPlayIcon(); }
   if(e.data===YT.PlayerState.PAUSED){ isPlaying=false; setPlayIcon(); }
 }
@@ -228,10 +246,18 @@ function play(p){
   pos=(p+queue.length)%queue.length;
   updateCounter();
   if(apiReady&&player&&player.loadVideoById) player.loadVideoById(queue[pos]);
+  preloadNext();
+}
+function preloadNext(){
+  if(!apiReady || !preloader || !preloader.cueVideoById) return;
+  if(!queue.length) return;
+  if(queue.length < 2) return;
+  const nextPos = (pos + 1) % queue.length;
+  if(nextPos === pos) return;
+  try{ preloader.cueVideoById(queue[nextPos]); }catch(e){}
 }
 function next(){
   if(!queue.length) return;
-  if(pos>=queue.length-1 && !data.settings.loop){ isPlaying=false; setPlayIcon(); return; }
   play(pos+1);
 }
 function prev(){ play(pos-1); }
@@ -251,7 +277,7 @@ function setPlayIcon(){
 function refreshChip(){ $('plName').textContent = current().name || "Untitled"; }
 function syncToggles(){
   $('shuffleBtn').classList.toggle('on', data.settings.shuffle);
-  $('loopBtn').classList.toggle('on', data.settings.loop);
+  $('loopOneBtn').classList.toggle('on', data.settings.loopOne);
 }
 
 function startPlayback(){
@@ -327,7 +353,7 @@ $('nextBtn').onclick=next;
 $('prevBtn').onclick=prev;
 $('plChip').onclick=()=>{ renderPlaylists(); $('plDrawer').classList.add('open'); };
 $('shuffleBtn').onclick=()=>{ data.settings.shuffle=!data.settings.shuffle; save(); syncToggles(); if(overlay.classList.contains('hidden')){buildQueue();play(0);} };
-$('loopBtn').onclick=()=>{ data.settings.loop=!data.settings.loop; save(); syncToggles(); };
+$('loopOneBtn').onclick=()=>{ data.settings.loopOne=!data.settings.loopOne; save(); syncToggles(); };
 $('editBtn').onclick=openEdit;
 document.querySelectorAll('.drawer').forEach(d=>d.addEventListener('click',e=>{ if(e.target===d) d.classList.remove('open'); }));
 
