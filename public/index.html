@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, user-scalable=no">
-<title>Reel — your shorts, in order</title>
+<title>Sumiran — your shorts, in order</title>
 <meta name="theme-color" content="#0b0c0e">
 <meta name="description" content="Play your own list of YouTube Shorts, one after another.">
 <link rel="manifest" href="manifest.webmanifest">
@@ -11,7 +11,7 @@
 <link rel="icon" href="favicon-32.png" sizes="32x32">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Reel">
+<meta name="apple-mobile-web-app-title" content="Sumiran">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -104,7 +104,7 @@
 </head>
 <body>
   <header>
-    <div class="logo"><span class="dot"></span>Reel</div>
+    <div class="logo"><span class="dot"></span>Sumiran</div>
     <div class="pl-chip" id="plChip"><span id="plName">My shorts</span>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
     </div>
@@ -334,7 +334,7 @@ document.querySelectorAll('.drawer').forEach(d=>d.addEventListener('click',e=>{ 
 /* boot */
 syncToggles(); refreshChip(); buildQueue(); updateCounter();
 showOverlay(
-  idsOf(current()).length ? current().name : "Welcome to Reel",
+  idsOf(current()).length ? current().name : "Welcome to Sumiran",
   idsOf(current()).length ? "Tap play to run your list top to bottom." : "Tap Edit below to paste your first Shorts links."
 );
 
