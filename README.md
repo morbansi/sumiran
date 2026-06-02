@@ -1,4 +1,4 @@
-# Reel — your shorts, in order
+# Sumiran — your shorts, in order
 
 A tiny web app that plays *your* list of YouTube Shorts one after another, and
 nothing else. Lists are saved on your device, with multiple playlists, shuffle,
