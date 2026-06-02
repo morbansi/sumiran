@@ -1,4 +1,4 @@
-const CACHE = "sumiran-v2";
+const CACHE = "sumiran-v2.1";
 const SHELL = [
   ".",
   "index.html",
